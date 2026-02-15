@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jamba Chat</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    .msg {
+      background: #1e293b;
+      margin: 5px 0;
+      padding: 8px;
+      border-radius: 8px;
+    }
+
+    form {
+      display: flex;
+      gap: 5px;
+      padding: 10px;
+      background: #020617;
+    }
+
+    input, button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+    }
+
+    input {
+      flex: 1;
+    }
+
+    button {
+      background: #22c55e;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="messages"></div>
+
+<form id="form">
+  <input id="name" placeholder="اسمك" />
+  <input id="input" placeholder="اكتب رسالة..." autocomplete="off"/>
+  <button>إرسال</button>
+</form>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+/* ضع بيانات مشروعك هنا */
+const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
+
+const supabase = createClient(PASTE_URL_HERE
+PASTE_ANON_KEY_HERE
+, SUPABASE_KEY);
+
+const messagesDiv = document.getElementById("messages");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const nameInput = document.getElementById("name");
+
+async function loadMessages() {
+  const { data } = await supabase
+    .from("messages")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  messagesDiv.innerHTML = "";
+
+  data.forEach(msg => {
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.textContent = msg.name + ": " + msg.text;
+    messagesDiv.appendChild(div);
+  });
+
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!input.value) return;
+
+  await supabase.from("messages").insert({
+    name: nameInput.value || "زائر",
+    text: input.value
+  });
+
+  input.value = "";
+});
+
+supabase
+  .channel("messages-channel")
+  .on(
+    "postgres_changes",
+    { event: "INSERT", schema: "public", table: "messages" },
+    loadMessages
+  )
+  .subscribe();
+
+loadMessages();
+</script>
+
+</body>
+</html>
