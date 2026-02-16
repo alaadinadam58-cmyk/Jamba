@@ -1,84 +1,42 @@
-<!DOCTYPE html>
-<html lang="ar">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jamba Chat</title>
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  #user-list button { display:block; margin-bottom:5px; padding:5px 10px; cursor:pointer; }
-  #messages div { margin-bottom:5px; }
-</style>
-</head>
-<body>
-
-<h2>Jamba Chat</h2>
-
-<!-- قائمة المستخدمين -->
-<div id="user-list" style="margin-bottom: 20px;">
-  <h3>اختر مستخدم لبدء المحادثة:</h3>
-</div>
-
-<!-- عنوان المحادثة -->
-<h3 id="chat-header">الدردشة مع ...</h3>
-
-<!-- رسائل الشات -->
-<div id="messages" style="height:300px;overflow:auto;border:1px solid #ccc;padding:10px;margin-bottom:10px;">
-</div>
-
-<!-- إدخال الرسالة وزر الإرسال -->
+<div id="user-list"></div>
+<h3 id="chat-header">اختر مستخدم لبدء المحادثة</h3>
+<div id="messages" style="height:300px;overflow:auto;border:1px solid #ccc;padding:10px;margin-bottom:10px;"></div>
 <input type="text" id="msg-input" placeholder="اكتب رسالتك هنا..." style="width:70%;padding:5px;"/>
 <button id="send-btn" style="padding:5px 10px;">إرسال</button>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-// ضع رابط مشروعك ومفتاح المشروع هنا
-const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co ";
+const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 let currentChatId = null;
+let otherUserId = null;
 
-// إنشاء أو جلب المستخدم
+// تهيئة المستخدم
 async function initUser() {
   let savedId = localStorage.getItem("user_id");
-
   if (savedId) {
     const { data } = await supabase.from("users").select("*").eq("id", savedId).single();
-    if (data) {
-      currentUser = data;
-      return;
-    }
+    if (data) { currentUser = data; return; }
   }
-
   const username = prompt("اكتب اسمك:");
   if (!username) return;
-
-  const { data } = await supabase
-    .from("users")
-    .insert({ username })
-    .select()
-    .single();
-
+  const { data } = await supabase.from("users").insert({ username }).select().single();
   localStorage.setItem("user_id", data.id);
   currentUser = data;
 }
 
 // تحميل قائمة المستخدمين
 async function loadUsers() {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .neq("id", currentUser.id);
-
+  const { data, error } = await supabase.from("users").select("*").neq("id", currentUser.id);
   if (error) return console.error(error);
 
   const userList = document.getElementById("user-list");
-  userList.innerHTML = "<h3>اختر مستخدم لبدء المحادثة:</h3>";
-
+  userList.innerHTML = "";
   data.forEach(user => {
     const btn = document.createElement("button");
     btn.textContent = user.username;
@@ -87,14 +45,15 @@ async function loadUsers() {
   });
 }
 
-// فتح محادثة فردية
-async function openChat(otherUserId, otherUsername) {
-  // البحث عن شات موجود
-  const { data } = await supabase
+// فتح المحادثة
+async function openChat(uid, username) {
+  otherUserId = uid;
+
+  // تحقق إذا المحادثة موجودة
+  let { data } = await supabase
     .from("chats")
     .select("*")
-    .or(`and(user1.eq.${currentUser.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${currentUser.id})`)
-    .limit(1)
+    .or(`and(user1.eq.${currentUser.id},user2.eq.${uid}),and(user1.eq.${uid},user2.eq.${currentUser.id})`)
     .single();
 
   if (data) {
@@ -102,80 +61,56 @@ async function openChat(otherUserId, otherUsername) {
   } else {
     const { data: newChat } = await supabase
       .from("chats")
-      .insert([{ user1: currentUser.id, user2: otherUserId }])
+      .insert([{ user1: currentUser.id, user2: uid }])
       .select()
       .single();
     currentChatId = newChat.id;
   }
 
-  document.getElementById("chat-header").textContent = `الدردشة مع ${otherUsername}`;
+  document.getElementById("chat-header").textContent = `الدردشة مع ${username}`;
+  subscribeMessages();
+}
+
+// الاشتراك بالرسائل لحظيًا
+function subscribeMessages() {
+  supabase
+    .from(`messages:chat_id=eq.${currentChatId}`)
+    .on('INSERT', payload => {
+      loadMessages();
+    })
+    .subscribe();
+
   loadMessages();
 }
 
 // تحميل الرسائل
 async function loadMessages() {
   if (!currentChatId) return;
-
   const { data, error } = await supabase
     .from("messages")
     .select("*")
     .eq("chat_id", currentChatId)
     .order("created_at", { ascending: true });
-
   if (error) return console.error(error);
 
   const messagesDiv = document.getElementById("messages");
   messagesDiv.innerHTML = "";
-
   data.forEach(msg => {
     const div = document.createElement("div");
     div.textContent = msg.sender_id === currentUser.id ? `أنا: ${msg.text}` : `هو: ${msg.text}`;
     messagesDiv.appendChild(div);
   });
-
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 // إرسال رسالة
-async function sendMessage(text) {
-  if (!currentChatId || !text) return;
+document.getElementById("send-btn").onclick = async () => {
+  const text = document.getElementById("msg-input").value;
+  if (!text || !currentChatId) return;
+  await supabase.from("messages").insert([{ chat_id: currentChatId, sender_id: currentUser.id, text }]);
+  document.getElementById("msg-input").value = "";
+};
 
-  await supabase.from("messages").insert([
-    { chat_id: currentChatId, sender_id: currentUser.id, text }
-  ]);
-}
-
-// ربط زر الإرسال
-document.getElementById("send-btn").addEventListener("click", () => {
-  const input = document.getElementById("msg-input");
-  sendMessage(input.value);
-  input.value = "";
-});
-
-// ------------------------
-// تفعيل Realtime
-// ------------------------
-function setupRealtime() {
-  supabase
-    .channel('public:messages')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'messages' },
-      (payload) => {
-        if (currentChatId && payload.new.chat_id === currentChatId) {
-          loadMessages();
-        }
-      }
-    )
-    .subscribe();
-}
-
-// تهيئة المستخدم والقائمة + Realtime
 await initUser();
 await loadUsers();
-setupRealtime();
-
 </script>
-
-</body>
-</html>
