@@ -102,38 +102,41 @@ async function openChat(u) {
 }
 
 /* تحميل الرسائل القديمة */
+<script>
 async function loadMessages() {
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("messages")
     .select(`
-      text,
+      id,
+      content,
+      created_at,
       sender_id,
-      users:sender_id (username)
+      users ( username )
     `)
-    .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
 
   if (error) {
-    console.error(error);
+    console.log("خطأ في تحميل الرسائل:", error);
     return;
   }
 
-  let box = document.getElementById("messages");
-  box.innerHTML = "";
+  const chatBox = document.getElementById("chat");
+  chatBox.innerHTML = "";
 
   data.forEach(msg => {
-    let div = document.createElement("div");
+    const div = document.createElement("div");
 
-    let senderName = msg.users?.username || "مستخدم";
+    const username =
+      msg.users && msg.users.username
+        ? msg.users.username
+        : "مستخدم";
 
-    div.textContent = senderName + ": " + msg.text;
-    div.className = msg.sender_id === me.id ? "my" : "other";
+    div.innerText = username + ": " + msg.content;
 
-    box.appendChild(div);
+    chatBox.appendChild(div);
   });
-
-  box.scrollTop = box.scrollHeight;
 }
+</script>
 
 
 /* الاستماع اللحظي */
@@ -193,5 +196,6 @@ await loadUsers();
 
 </body>
 </html>
+
 
 
