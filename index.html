@@ -1,86 +1,298 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<title>Jamba Chat</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-body{font-family:Arial;direction:rtl;text-align:center;}
-#chat{height:300px;overflow-y:auto;border:1px solid #ccc;margin:10px;padding:10px;}
-input,button{padding:10px;margin:5px;}
-.my{color:blue;}
-.other{color:green;}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jamba Chat</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    .msg {
+      background: #1e293b;
+      margin: 5px 0;
+      padding: 8px;
+      border-radius: 8px;
+    }
+
+    form {
+      display: flex;
+      gap: 5px;
+      padding: 10px;
+      background: #020617;
+    }
+
+    input, button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+    }
+
+    input {
+      flex: 1;
+    }
+
+    button {
+      background: #22c55e;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>دردشة جامبا</h2>
+<div id="messages"></div>
 
-<input id="username" placeholder="اكتب اسمك"/>
-<button onclick="saveUsername()">حفظ الاسم</button>
+<form id="form">
+  <input id="name" placeholder="اسمك" />
+  <input id="input" placeholder="اكتب رسالة..." autocomplete="off"/>
+  <button>إرسال</button>
+</form>
 
-<div id="chat"></div>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-<input id="message" placeholder="اكتب رسالة..."/>
-<button onclick="sendMessage()">إرسال</button>
+/* ضع بيانات مشروعك هنا */
+const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>دردشة متقدمة</title>
 
-<script>
-const supabase = window.supabase.createClient(
-  "https://vmsvmvetlpszsmqigonp.supabase.co",
-  "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
-);
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-let currentUserId = localStorage.getItem("user_id");
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b141a;
+      color: white;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
-async function saveUsername(){
-  const username = document.getElementById("username").value;
-  if(!username) return;
+    header {
+      background: #202c33;
+      padding: 12px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
 
-  const { data, error } = await supabase.from("users").insert({username}).select().single();
-  if(!error){
-    currentUserId = data.id;
-    localStorage.setItem("user_id",currentUserId);
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .msg {
+      padding: 10px;
+      border-radius: 12px;
+      max-width: 70%;
+      font-size: 14px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+
+    .me {
+      background: #005c4b;
+      align-self: flex-end;
+    }
+
+    .other {
+      background: #202c33;
+      align-self: flex-start;
+    }
+
+    .meta {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+
+    #inputBox {
+      display: flex;
+      gap: 6px;
+      padding: 10px;
+      background: #202c33;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #00a884;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>دردشة فورية</header>
+
+  <div id="chat"></div>
+
+  <div id="inputBox">
+    <input id="message" placeholder="اكتب رسالة..." />
+    <button onclick="sendMessage()">إرسال</button>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let username = localStorage.getItem("chat_name");
+
+    if (!username) {
+      username = prompt("اكتب اسمك:");
+      localStorage.setItem("chat_name", username);
+    }
+
+    const chatDiv = document.getElementById("chat");
+
+    function renderMessage(msg) {
+      const div = document.createElement("div");
+      div.className = "msg " + (msg.name === username ? "me" : "other");
+
+      const text = document.createElement("div");
+      text.textContent = msg.text;
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const time = new Date(msg.created_at).toLocaleTimeString();
+      meta.textContent = msg.name + " • " + time;
+
+      div.appendChild(text);
+      div.appendChild(meta);
+      chatDiv.appendChild(div);
+    }
+
+    async function loadMessages() {
+      const { data } = await client
+        .from("messages")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      chatDiv.innerHTML = "";
+      data.forEach(renderMessage);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
     loadMessages();
-  }
-}
 
-async function sendMessage(){
-  const content = document.getElementById("message").value;
-  if(!content || !currentUserId) return;
+    client
+      .channel("messages-channel")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          renderMessage(payload.new);
+          chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+      )
+      .subscribe();
 
-  await supabase.from("messages").insert({content, sender_id: currentUserId});
-  document.getElementById("message").value = "";
-}
+    async function sendMessage() {
+      const input = document.getElementById("message");
+      const text = input.value.trim();
+      if (!text) return;
 
-async function loadMessages(){
-  const { data, error } = await supabase
+      await client.from("messages").insert([
+        {
+          text,
+          name: username,
+        },
+      ]);
+
+      input.value = "";
+    }
+  </script>
+</body>
+</html>
+";
+
+const supabase = createClient(PASTE_URL_HERE
+PASTE_ANON_KEY_HERE
+, SUPABASE_KEY);
+
+const messagesDiv = document.getElementById("messages");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const nameInput = document.getElementById("name");
+
+async function loadMessages() {
+  const { data } = await supabase
     .from("messages")
-    .select("content, sender_id, users:sender_id (username)")
-    .order("created_at",{ascending:true});
+    .select("*")
+    .order("created_at", { ascending: true });
 
-  if(error){ console.log(error); return; }
+  messagesDiv.innerHTML = "";
 
-  const chat = document.getElementById("chat");
-  chat.innerHTML = "";
-
-  data.forEach(msg=>{
+  data.forEach(msg => {
     const div = document.createElement("div");
-    const name = msg.users?.username || "مستخدم";
-    div.textContent = name + ": " + msg.content;
-    div.className = msg.sender_id === currentUserId ? "my" : "other";
-    chat.appendChild(div);
+    div.className = "msg";
+    div.textContent = msg.name + ": " + msg.text;
+    messagesDiv.appendChild(div);
   });
 
-  chat.scrollTop = chat.scrollHeight;
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-// تحديث مباشر عند أي رسالة جديدة
-supabase.channel("realtime-messages")
-  .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},
-    ()=>loadMessages()
-  ).subscribe();
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!input.value) return;
+
+  await supabase.from("messages").insert({
+    name: nameInput.value || "زائر",
+    text: input.value
+  });
+
+  input.value = "";
+});
+
+supabase
+  .channel("messages-channel")
+  .on(
+    "postgres_changes",
+    { event: "INSERT", schema: "public", table: "messages" },
+    loadMessages
+  )
+  .subscribe();
 
 loadMessages();
 </script>
+
 </body>
 </html>
