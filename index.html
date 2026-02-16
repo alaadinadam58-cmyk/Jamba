@@ -28,13 +28,13 @@
 
 <!-- إدخال الرسالة وزر الإرسال -->
 <input type="text" id="msg-input" placeholder="اكتب رسالتك هنا..." style="width:70%;padding:5px;"/>
-<button onclick="sendMessage(document.getElementById('msg-input').value)" style="padding:5px 10px;">إرسال</button>
+<button id="send-btn" style="padding:5px 10px;">إرسال</button>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 // ضع رابط مشروعك ومفتاح المشروع هنا
-const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
+const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co ";
 const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -93,8 +93,7 @@ async function openChat(otherUserId, otherUsername) {
   const { data } = await supabase
     .from("chats")
     .select("*")
-    .or(`user1.eq.${currentUser.id},user2.eq.${currentUser.id}`)
-    .or(`user1.eq.${otherUserId},user2.eq.${otherUserId}`)
+    .or(`and(user1.eq.${currentUser.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${currentUser.id})`)
     .limit(1)
     .single();
 
@@ -144,10 +143,14 @@ async function sendMessage(text) {
   await supabase.from("messages").insert([
     { chat_id: currentChatId, sender_id: currentUser.id, text }
   ]);
-
-  document.getElementById("msg-input").value = "";
-  // loadMessages(); // لم يعد ضروري بسبب Realtime
 }
+
+// ربط زر الإرسال
+document.getElementById("send-btn").addEventListener("click", () => {
+  const input = document.getElementById("msg-input");
+  sendMessage(input.value);
+  input.value = "";
+});
 
 // ------------------------
 // تفعيل Realtime
