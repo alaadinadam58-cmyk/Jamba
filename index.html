@@ -33,7 +33,7 @@
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-// ضع رابط مشروعك ومفتاح المشروع
+// ضع رابط مشروعك ومفتاح المشروع هنا
 const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
 
@@ -89,6 +89,7 @@ async function loadUsers() {
 
 // فتح محادثة فردية
 async function openChat(otherUserId, otherUsername) {
+  // البحث عن شات موجود
   const { data } = await supabase
     .from("chats")
     .select("*")
@@ -145,12 +146,32 @@ async function sendMessage(text) {
   ]);
 
   document.getElementById("msg-input").value = "";
-  loadMessages();
+  // loadMessages(); // لم يعد ضروري بسبب Realtime
 }
 
-// تهيئة المستخدم والقائمة
+// ------------------------
+// تفعيل Realtime
+// ------------------------
+function setupRealtime() {
+  supabase
+    .channel('public:messages')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'messages' },
+      (payload) => {
+        if (currentChatId && payload.new.chat_id === currentChatId) {
+          loadMessages();
+        }
+      }
+    )
+    .subscribe();
+}
+
+// تهيئة المستخدم والقائمة + Realtime
 await initUser();
 await loadUsers();
+setupRealtime();
+
 </script>
 
 </body>
