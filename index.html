@@ -1,50 +1,73 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jamba Chat</title>
+<style>
+  body { font-family: Arial, sans-serif; margin:20px; }
+  #user-list button { display:block; margin:5px 0; padding:5px 10px; cursor:pointer; }
+  #messages { height:300px; overflow:auto; border:1px solid #ccc; padding:10px; margin-bottom:10px; background:#f9f9f9; }
+  #msg-input { width:70%; padding:5px; }
+  #send-btn { padding:5px 10px; }
+  .my-msg { color: blue; margin:2px 0; }
+  .other-msg { color: green; margin:2px 0; }
+</style>
+</head>
+<body>
+
+<h2>مرحبا بك في Jamba Chat</h2>
+
+<!-- قائمة المستخدمين -->
+<div id="user-list">
+  <h3>اختر مستخدم لبدء المحادثة:</h3>
+</div>
+
+<!-- عنوان المحادثة -->
+<h3 id="chat-header">الدردشة مع ...</h3>
+
+<!-- رسائل الشات -->
+<div id="messages"></div>
+
+<!-- إدخال الرسالة وزر الإرسال -->
+<input type="text" id="msg-input" placeholder="اكتب رسالتك هنا..." />
+<button id="send-btn">إرسال</button>
+
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co;
+// ضع رابط مشروعك ومفتاحك من Supabase
+const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
+let currentChatId = null;
+let otherUserId = null;
+let messageSubscription = null;
 
-/* إنشاء أو جلب المستخدم */
+// تهيئة المستخدم
 async function initUser() {
   let savedId = localStorage.getItem("user_id");
-
   if (savedId) {
     const { data } = await supabase.from("users").select("*").eq("id", savedId).single();
-    if (data) {
-      currentUser = data;
-      return;
-    }
+    if (data) { currentUser = data; return; }
   }
-
   const username = prompt("اكتب اسمك:");
   if (!username) return;
-
-  const { data } = await supabase
-    .from("users")
-    .insert({ username })
-    .select()
-    .single();
-
+  const { data } = await supabase.from("users").insert({ username }).select().single();
   localStorage.setItem("user_id", data.id);
   currentUser = data;
 }
 
-/* تحميل قائمة المستخدمين */
+// تحميل قائمة المستخدمين
 async function loadUsers() {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .neq("id", currentUser.id);
-
+  const { data, error } = await supabase.from("users").select("*").neq("id", currentUser.id);
   if (error) return console.error(error);
 
   const userList = document.getElementById("user-list");
-  userList.innerHTML = "";
-
+  userList.innerHTML = "<h3>اختر مستخدم لبدء المحادثة:</h3>";
   data.forEach(user => {
     const btn = document.createElement("button");
     btn.textContent = user.username;
@@ -53,15 +76,15 @@ async function loadUsers() {
   });
 }
 
-/* فتح محادثة فردية */
-let currentChatId = null;
-async function openChat(otherUserId, otherUsername) {
-  const { data } = await supabase
+// فتح المحادثة الفردية
+async function openChat(uid, username) {
+  otherUserId = uid;
+
+  // تحقق إذا المحادثة موجودة بين المستخدمين
+  let { data } = await supabase
     .from("chats")
     .select("*")
-    .or(`user1.eq.${currentUser.id},user2.eq.${currentUser.id}`)
-    .or(`user1.eq.${otherUserId},user2.eq.${otherUserId}`)
-    .limit(1)
+    .or(`and(user1.eq.${currentUser.id},user2.eq.${uid}),and(user1.eq.${uid},user2.eq.${currentUser.id})`)
     .single();
 
   if (data) {
@@ -69,50 +92,69 @@ async function openChat(otherUserId, otherUsername) {
   } else {
     const { data: newChat } = await supabase
       .from("chats")
-      .insert([{ user1: currentUser.id, user2: otherUserId }])
+      .insert([{ user1: currentUser.id, user2: uid }])
       .select()
       .single();
     currentChatId = newChat.id;
   }
 
-  document.getElementById("chat-header").textContent = `الدردشة مع ${otherUsername}`;
+  document.getElementById("chat-header").textContent = `الدردشة مع ${username}`;
+
+  // إذا في اشتراك قديم ألغيه
+  if (messageSubscription) supabase.removeSubscription(messageSubscription);
+
+  subscribeMessages();
+}
+
+// الاشتراك بالرسائل لحظيًا
+function subscribeMessages() {
+  if (!currentChatId) return;
+
+  messageSubscription = supabase
+    .from(`messages:chat_id=eq.${currentChatId}`)
+    .on('INSERT', payload => appendMessage(payload.new))
+    .subscribe();
+
   loadMessages();
 }
 
-/* تحميل الرسائل */
+// تحميل الرسائل مرة واحدة
 async function loadMessages() {
   if (!currentChatId) return;
-
   const { data, error } = await supabase
     .from("messages")
     .select("*")
     .eq("chat_id", currentChatId)
     .order("created_at", { ascending: true });
-
   if (error) return console.error(error);
 
   const messagesDiv = document.getElementById("messages");
   messagesDiv.innerHTML = "";
-
-  data.forEach(msg => {
-    const div = document.createElement("div");
-    div.textContent = msg.sender_id === currentUser.id ? `أنا: ${msg.text}` : `هو: ${msg.text}`;
-    messagesDiv.appendChild(div);
-  });
+  data.forEach(msg => appendMessage(msg));
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-/* إرسال رسالة */
-async function sendMessage(text) {
-  if (!currentChatId || !text) return;
-
-  await supabase.from("messages").insert([
-    { chat_id: currentChatId, sender_id: currentUser.id, text }
-  ]);
-
-  loadMessages();
+// إضافة رسالة جديدة للـ DOM
+function appendMessage(msg) {
+  const messagesDiv = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.textContent = msg.sender_id === currentUser.id ? `أنا: ${msg.text}` : `هو: ${msg.text}`;
+  div.className = msg.sender_id === currentUser.id ? "my-msg" : "other-msg";
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-/* تهيئة المستخدم والقائمة */
+// إرسال رسالة
+document.getElementById("send-btn").onclick = async () => {
+  const text = document.getElementById("msg-input").value;
+  if (!text || !currentChatId) return;
+  await supabase.from("messages").insert([{ chat_id: currentChatId, sender_id: currentUser.id, text }]);
+  document.getElementById("msg-input").value = "";
+};
+
 await initUser();
 await loadUsers();
 </script>
+
+</body>
+</html>
