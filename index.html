@@ -105,11 +105,7 @@ async function openChat(u) {
 async function loadMessages() {
   let { data, error } = await supabase
     .from("messages")
-    .select(`
-      text,
-      sender_id,
-      users:sender_id (username)
-    `)
+    .select("text, sender_id, users(username)")
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
 
