@@ -155,9 +155,8 @@ header {
 /* نفس كودك بدون أي تغيير */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const supabase = createClient(
-  https://vmsvmvetlpszsmqigonp.supabase.co
-sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0
+const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
 );
 
 let me = null;
@@ -282,5 +281,6 @@ await loadUsers();
 
 </body>
 </html>
+
 
 
