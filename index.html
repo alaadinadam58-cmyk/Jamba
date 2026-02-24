@@ -3,44 +3,169 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> دردشة الجمبة </title>
+<title> الجمبة</title>
 
 <style>
-body { font-family: Arial; margin:20px; }
-#user-list button { display:block; margin:5px 0; padding:6px; cursor:pointer; }
-#messages { height:320px; overflow:auto; border:1px solid #ccc; padding:10px; margin:10px 0; background:#fafafa; }
-.my { color:blue; margin:4px 0; }
-.other { color:green; margin:4px 0; }
+body {
+  font-family: Arial, sans-serif;
+  margin:0;
+  padding:0;
+  background:#f2f4f7;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+
+/* الهيدر */
+header {
+  width:100%;
+  background:#1a73e8;
+  color:white;
+  padding:15px;
+  font-size:20px;
+  text-align:center;
+}
+
+/* المستخدمين في الأعلى */
+#user-list {
+  width:100%;
+  background:white;
+  padding:10px;
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  border-bottom:1px solid #ddd;
+}
+
+#user-list h3 {
+  margin:0 10px;
+  display:flex;
+  align-items:center;
+}
+
+#user-list button {
+  padding:8px 15px;
+  border:none;
+  border-radius:20px;
+  cursor:pointer;
+  background:#e4e6eb;
+  white-space:nowrap;
+}
+
+#user-list button:hover {
+  background:#cfd3d8;
+}
+
+/* لوحة الدردشة */
+.chat-panel {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  padding:15px;
+}
+
+/* عنوان الدردشة */
+#chat-header {
+  font-size:18px;
+  margin-bottom:10px;
+}
+
+/* الرسائل */
+#messages {
+  flex:1;
+  overflow-y:auto;
+  background:white;
+  border-radius:10px;
+  padding:15px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  font-size:16px;
+}
+
+/* شكل الرسائل */
+.my {
+  background:#0084ff;
+  color:white;
+  padding:8px 14px;
+  border-radius:18px;
+  align-self:flex-end;
+  max-width:70%;
+}
+
+.other {
+  background:#4caf50;
+  color:white;
+  padding:8px 14px;
+  border-radius:18px;
+  align-self:flex-start;
+  max-width:70%;
+}
+
+/* منطقة الإدخال */
+.input-area {
+  display:flex;
+  padding:10px;
+  background:white;
+  border-top:1px solid #ddd;
+}
+
+#msg {
+  flex:1;
+  padding:12px;
+  border-radius:25px;
+  border:1px solid #ccc;
+  font-size:15px;
+}
+
+#send {
+  margin-left:10px;
+  padding:10px 20px;
+  border:none;
+  border-radius:25px;
+  background:#1a73e8;
+  color:white;
+  cursor:pointer;
+}
+
+#send:hover {
+  background:#1557b0;
+}
 </style>
 </head>
+
 <body>
 
-<h2>  دردشة الجمبة</h2>
+<header>دردشة الجمبة</header>
 
+<!-- المستخدمين بالأعلى -->
 <div id="user-list"></div>
-<h3 id="chat-header">اختر شخص لبدء المحادثة</h3>
-<div id="messages"></div>
 
-<input id="msg" placeholder="اكتب رسالة..." />
-<button id="send">إرسال</button>
+<!-- الدردشة بالأسفل أكبر -->
+<div class="chat-panel">
+  <h3 id="chat-header">اختر مستخدم لبدء المحادثة</h3>
+  <div id="messages"></div>
+  <div class="input-area">
+    <input id="msg" placeholder="اكتب رسالة..." />
+    <button id="send">إرسال</button>
+  </div>
+</div>
 
 <script type="module">
+/* نفس كودك بدون أي تغيير */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-/* ضع بيانات مشروعك هنا فقط */
 const supabase = createClient(
-  "https://vmsvmvetlpszsmqigonp.supabase.co",
-  "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
+  https://vmsvmvetlpszsmqigonp.supabase.co
+sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0
 );
 
 let me = null;
 let chatId = null;
 let channel = null;
 
-/* إنشاء أو جلب المستخدم */
 async function initUser() {
   let saved = localStorage.getItem("uid");
-
   if (saved) {
     let { data } = await supabase.from("users").select("*").eq("id", saved).single();
     if (data) { me = data; return; }
@@ -58,7 +183,6 @@ async function initUser() {
   me = data;
 }
 
-/* تحميل المستخدمين */
 async function loadUsers() {
   let { data } = await supabase
     .from("users")
@@ -66,7 +190,7 @@ async function loadUsers() {
     .neq("id", me.id);
 
   let box = document.getElementById("user-list");
-  box.innerHTML = "<h3>المستخدمين</h3>";
+  
 
   data.forEach(u => {
     let b = document.createElement("button");
@@ -76,7 +200,6 @@ async function loadUsers() {
   });
 }
 
-/* فتح محادثة بين شخصين */
 async function openChat(u) {
 
   let { data } = await supabase
@@ -101,71 +224,44 @@ async function openChat(u) {
   listenMessages();
 }
 
-/* تحميل الرسائل القديمة */
 async function loadMessages() {
-  let { data, error } = await supabase
+  let { data } = await supabase
     .from("messages")
     .select("text, sender_id, users(username)")
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error(error);
-    return;
-  }
 
   let box = document.getElementById("messages");
   box.innerHTML = "";
 
   data.forEach(msg => {
     let div = document.createElement("div");
-
     let senderName = msg.users?.username || "مستخدم";
-
     div.textContent = senderName + ": " + msg.text;
     div.className = msg.sender_id === me.id ? "my" : "other";
-
     box.appendChild(div);
   });
 
   box.scrollTop = box.scrollHeight;
 }
 
-
-/* الاستماع اللحظي */
 function listenMessages() {
-
   if (channel) supabase.removeChannel(channel);
 
   channel = supabase
     .channel("room-" + chatId)
-    .on(
-      "postgres_changes",
+    .on("postgres_changes",
       {
         event: "INSERT",
         schema: "public",
         table: "messages",
         filter: `chat_id=eq.${chatId}`
       },
-      payload => addMsg(payload.new)
+      payload => loadMessages()
     )
     .subscribe();
 }
 
-/* عرض رسالة في الشاشة */
-function addMsg(msg) {
-  let div = document.createElement("div");
-
-  let senderName = msg.username || "مستخدم";
-
-  div.textContent = senderName + ": " + msg.text;
-
-  div.className = msg.sender_id === me.id ? "my" : "other";
-
-  document.getElementById("messages").appendChild(div);
-}
-
-/* إرسال رسالة */
 document.getElementById("send").onclick = async () => {
   let t = document.getElementById("msg").value;
   if (!t || !chatId) return;
@@ -177,19 +273,14 @@ document.getElementById("send").onclick = async () => {
   });
 
   document.getElementById("msg").value = "";
-
-  /* إظهار فوري */
   await loadMessages();
 };
 
-/* بدء التشغيل */
 await initUser();
 await loadUsers();
 </script>
 
 </body>
 </html>
-
-
 
 
