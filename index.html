@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> الجمبة</title>
+<title>  الجمبة</title>
 
 <style>
 body {
@@ -155,7 +155,6 @@ header {
 /* نفس كودك بدون أي تغيير */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-
 const supabase = createClient(
   "https://vmsvmvetlpszsmqigonp.supabase.co",
   "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
@@ -251,14 +250,37 @@ function listenMessages() {
 
   channel = supabase
     .channel("room-" + chatId)
-    .on("postgres_changes",
+    .on(
+      "postgres_changes",
       {
         event: "INSERT",
         schema: "public",
         table: "messages",
         filter: `chat_id=eq.${chatId}`
       },
-      payload => loadMessages()
+      async (payload) => {
+
+        const msg = payload.new;
+
+        // لا نكرر رسالة المرسل
+        if (msg.sender_id === me.id) return;
+
+        // جلب اسم المرسل
+        const { data } = await supabase
+          .from("users")
+          .select("username")
+          .eq("id", msg.sender_id)
+          .single();
+
+        let box = document.getElementById("messages");
+
+        let div = document.createElement("div");
+        div.textContent = (data?.username || "مستخدم") + ": " + msg.text;
+        div.className = "other";
+
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+      }
     )
     .subscribe();
 }
@@ -276,13 +298,18 @@ document.getElementById("send").onclick = async () => {
   document.getElementById("msg").value = "";
   await loadMessages();
 };
+  
 
 await initUser();
 await loadUsers();
 </script>
-
 </body>
 </html>
+
+
+
+
+
 
 
 
