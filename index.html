@@ -212,7 +212,8 @@ async function initUser() {
 }
 
 async function loadUsers() {
-  let { data } = await supabase
+
+  let { data: users } = await supabase
     .from("users")
     .select("*")
     .neq("id", me.id);
@@ -220,31 +221,37 @@ async function loadUsers() {
   let box = document.getElementById("user-list");
   box.innerHTML = "";
 
-  data.forEach(u => {
+  for (let u of users) {
+
+    // حساب عدد الرسائل غير المقروءة من هذا المستخدم
+    const { count } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("sender_id", u.id)
+      .eq("receiver_id", me.id)
+      .eq("is_read", false);
+
     let b = document.createElement("button");
     b.id = "user-" + u.id;
 
-    let count = unreadCounts[u.id] || 0;
-
     if (count > 0) {
       b.innerHTML = `
-        ${u.username} 
+        ${u.username}
         <span class="unread-badge">(${count})</span>
       `;
     } else {
       b.textContent = u.username;
     }
 
-    b.onclick = () => {
-      unreadCounts[u.id] = 0;
-      openChat(u);
-      loadUsers();
+    b.onclick = async () => {
+      await openChat(u);
     };
 
     box.appendChild(b);
-  });
-
+  }
 }
+
+
 
 
 
@@ -269,6 +276,18 @@ async function openChat(u) {
   document.getElementById("chat-header").textContent = "الدردشة مع " + u.username;
 
   await loadMessages();
+  // تحديث الرسائل كمقروءة
+await supabase
+  .from("messages")
+  .update({ is_read: true })
+  .eq("sender_id", u.id)
+  .eq("receiver_id", me.id)
+  .eq("chat_id", chatId)
+  .eq("is_read", false);
+
+// تحديث القائمة لإزالة العداد
+loadUsers();
+
  
 }
 
