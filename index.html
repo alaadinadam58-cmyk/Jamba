@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> الجمبة</title>
+<title> حولنا</title>
 
 <style>
 body {
@@ -156,14 +156,30 @@ header {
   color: red;
   font-weight: bold;
 }
+#loginScreen{
+  position:fixed;
+  inset:0;
+  background:linear-gradient(135deg,#075e54,#128c7e);
+  display:none; /* ← مهم */
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
 
 </style>
 </head>
 
 <body>
 
-<header>دردشة الجمبة</header>
-
+<header>دردشة حولنا</header>
+<div id="loginScreen">
+  <div class="loginBox">
+    <h2>مرحباً بك 👋</h2>
+    <p>اكتب اسمك للدخول إلى الشات</p>
+    <input type="text" id="usernameInput" placeholder="اسمك">
+    <button onclick="registerUser()">دخول</button>
+  </div>
+</div>
 <!-- المستخدمين بالأعلى -->
 <div id="user-list"></div>
 
@@ -178,13 +194,11 @@ header {
 </div>
 
 <script type="module">
-  let unreadCounts = {};
 
-/* نفس كودك بدون أي تغيير */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 const supabase = createClient(
-  "https://vmsvmvetlpszsmqigonp.supabase.co",
+ "https://vmsvmvetlpszsmqigonp.supabase.co",
   "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
 );
 
@@ -192,25 +206,67 @@ let me = null;
 let chatId = null;
 let channel = null;
 
-async function initUser() {
-  let saved = localStorage.getItem("uid");
-  if (saved) {
-    let { data } = await supabase.from("users").select("*").eq("id", saved).single();
-    if (data) { me = data; return; }
+  async function registerUser() {
+
+  let name = document.getElementById("usernameInput").value.trim();
+
+  if (!name) {
+    alert("اكتب اسمك أولاً");
+    return;
   }
 
-  let name = prompt("اكتب اسمك");
-  if (!name) return;
-
-  let { data } = await supabase.from("users")
+  const { data, error } = await supabase
+    .from("users")
     .insert({ username: name })
     .select()
     .single();
 
+  if (error) {
+    alert("خطأ: " + error.message);
+    console.error(error);
+    return;
+  }
+
   localStorage.setItem("uid", data.id);
   me = data;
+
+  document.getElementById("loginScreen").style.display = "none";
+
+  await loadUsers();
+  listenMessages();
 }
 
+window.registerUser = registerUser;
+
+
+/* =========================
+   تسجيل المستخدم
+========================= */
+async function initUser() {
+
+  let saved = localStorage.getItem("uid");
+
+  if (!saved) {
+    document.getElementById("loginScreen").style.display = "flex";
+    return;
+  }
+
+  let { data } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", saved)
+    .single();
+
+  if (data) {
+    me = data;
+  } else {
+    document.getElementById("loginScreen").style.display = "flex";
+  }
+}
+
+/* =========================
+   تحميل المستخدمين
+========================= */
 async function loadUsers() {
 
   let { data: users } = await supabase
@@ -223,7 +279,6 @@ async function loadUsers() {
 
   for (let u of users) {
 
-    // حساب عدد الرسائل غير المقروءة من هذا المستخدم
     const { count } = await supabase
       .from("messages")
       .select("*", { count: "exact", head: true })
@@ -232,29 +287,22 @@ async function loadUsers() {
       .eq("is_read", false);
 
     let b = document.createElement("button");
-    b.id = "user-" + u.id;
 
     if (count > 0) {
-      b.innerHTML = `
-        ${u.username}
-        <span class="unread-badge">(${count})</span>
-      `;
+      b.innerHTML = `${u.username} <span style="color:red">(${count})</span>`;
     } else {
       b.textContent = u.username;
     }
 
-    b.onclick = async () => {
-      await openChat(u);
-    };
+    b.onclick = () => openChat(u);
 
     box.appendChild(b);
   }
 }
 
-
-
-
-
+/* =========================
+   فتح محادثة
+========================= */
 async function openChat(u) {
 
   let { data } = await supabase
@@ -264,10 +312,12 @@ async function openChat(u) {
     .single();
 
   if (!data) {
-    let res = await supabase.from("chats")
+    let res = await supabase
+      .from("chats")
       .insert({ user1: me.id, user2: u.id })
       .select()
       .single();
+
     data = res.data;
   }
 
@@ -276,26 +326,25 @@ async function openChat(u) {
   document.getElementById("chat-header").textContent = "الدردشة مع " + u.username;
 
   await loadMessages();
-  // تحديث الرسائل كمقروءة
-await supabase
-  .from("messages")
-  .update({ is_read: true })
-  .eq("sender_id", u.id)
-  .eq("receiver_id", me.id)
-  .eq("chat_id", chatId)
-  .eq("is_read", false);
 
-// تحديث القائمة لإزالة العداد
-loadUsers();
+  await supabase
+    .from("messages")
+    .update({ is_read: true })
+    .eq("chat_id", chatId)
+    .eq("receiver_id", me.id);
 
- 
+  loadUsers();
 }
 
+/* =========================
+   تحميل الرسائل
+========================= */
 async function loadMessages() {
 
-  let { data, error } = await supabase
+  let { data } = await supabase
     .from("messages")
     .select(`
+      id,
       text,
       sender_id,
       sender:sender_id ( username )
@@ -303,82 +352,73 @@ async function loadMessages() {
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
 
-  if (error) {
-    console.error(error);
-    return;
-  }
-
   let box = document.getElementById("messages");
   box.innerHTML = "";
 
   data.forEach(msg => {
 
     let div = document.createElement("div");
+    div.id = "msg-" + msg.id;
 
-    let senderName = msg.sender?.username || "مستخدم";
+    if (msg.sender_id === me.id) {
+      div.className = "my";
+      div.textContent = msg.text;
 
-    div.textContent = senderName + ": " + msg.text;
+      let del = document.createElement("button");
+      del.textContent = "🗑";
+      del.style.marginRight = "6px";
+      del.onclick = async () => {
+        await supabase.from("messages").delete().eq("id", msg.id);
+      };
 
-    div.className =
-      msg.sender_id === me.id ? "my" : "other";
+      div.appendChild(del);
+
+    } else {
+      div.className = "other";
+      div.textContent = msg.sender?.username + ": " + msg.text;
+    }
 
     box.appendChild(div);
   });
 
-  // هذا السطر يجب أن يكون داخل الدالة
   box.scrollTop = box.scrollHeight;
-
-
-}
-function showToast(message) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.textContent = message;
-
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add("show");
-  }, 100);
-
-  setTimeout(() => {
-    toast.classList.remove("show");
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
 }
 
+/* =========================
+   الاستماع الفوري
+========================= */
 function listenMessages() {
 
-  if (channel) {
-    supabase.removeChannel(channel);
-  }
+  if (channel) supabase.removeChannel(channel);
 
   channel = supabase
-    .channel("incoming")
+    .channel("realtime-messages")
+
     .on(
       "postgres_changes",
       {
         event: "INSERT",
         schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${me.id}`
+        table: "messages"
       },
       async (payload) => {
 
         const msg = payload.new;
 
-        // إذا الرسالة في شات آخر
+        // لا تعرض رسالتي (أنا أعرضها محلياً)
+        if (msg.sender_id === me.id) return;
+
+        // لو الرسالة ليست في الشات المفتوح
         if (msg.chat_id !== chatId) {
-
-          unreadCounts[msg.sender_id] =
-            (unreadCounts[msg.sender_id] || 0) + 1;
-
           loadUsers();
           return;
         }
 
-        // عرض مباشر
-        const { data } = await supabase
+        // منع التكرار
+        if (document.getElementById("msg-" + msg.id)) return;
+
+        // جلب اسم المرسل
+        const { data: user } = await supabase
           .from("users")
           .select("username")
           .eq("id", msg.sender_id)
@@ -387,24 +427,49 @@ function listenMessages() {
         let box = document.getElementById("messages");
 
         let div = document.createElement("div");
-        div.textContent = data.username + ": " + msg.text;
+        div.id = "msg-" + msg.id;
         div.className = "other";
+        div.textContent = user.username + ": " + msg.text;
 
         box.appendChild(div);
         box.scrollTop = box.scrollHeight;
+
+        // تحديثها كمقروءة
+        await supabase
+          .from("messages")
+          .update({ is_read: true })
+          .eq("id", msg.id);
+
+        loadUsers();
       }
     )
+
+    .on(
+      "postgres_changes",
+      {
+        event: "DELETE",
+        schema: "public",
+        table: "messages"
+      },
+      (payload) => {
+        let el = document.getElementById("msg-" + payload.old.id);
+        if (el) el.remove();
+      }
+    )
+
     .subscribe();
 }
 
 
+/* =========================
+   إرسال رسالة
+========================= */
+async function sendMessage() {
 
+  let input = document.getElementById("msg");
+  let text = input.value.trim();
 
-
-document.getElementById("send").onclick = async () => {
-
-  let t = document.getElementById("msg").value.trim();
-  if (!t || !chatId) return;
+  if (!text || !chatId) return;
 
   const { data: chat } = await supabase
     .from("chats")
@@ -412,72 +477,44 @@ document.getElementById("send").onclick = async () => {
     .eq("id", chatId)
     .single();
 
-  let receiverId =
-    chat.user1 === me.id ? chat.user2 : chat.user1;
+  let receiverId = chat.user1 === me.id ? chat.user2 : chat.user1;
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("messages")
     .insert({
       chat_id: chatId,
       sender_id: me.id,
       receiver_id: receiverId,
-      text: t
+      text: text,
+      is_read: false
     })
-    .select(`
-      text,
-      sender_id,
-      sender:sender_id ( username )
-    `)
+    .select()
     .single();
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+  input.value = "";
 
-  // 🔥 عرض الرسالة فوراً محلياً
-  let box = document.getElementById("messages");
+  await loadMessages();
+}
 
-  let div = document.createElement("div");
-  div.textContent = data.sender.username + ": " + data.text;
-  div.className = "my";
+/* =========================
+   ربط الأزرار
+========================= */
+document.getElementById("send").addEventListener("click", sendMessage);
 
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
+document.getElementById("msg").addEventListener("keypress", e => {
+  if (e.key === "Enter") sendMessage();
+});
 
-  document.getElementById("msg").value = "";
-};
-
-
-  
-
+/* =========================
+   تشغيل التطبيق
+========================= */
 await initUser();
 await loadUsers();
 listenMessages();
 
+
+
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
