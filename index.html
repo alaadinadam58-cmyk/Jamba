@@ -219,7 +219,7 @@
       }
 
       // إرسال البيانات إلى جدول الرسائل
-      await client.from("messages").insert([
+      await client.from("messages").insert([ 
         {
           text: text || null,
           image_url: imageUrl,
