@@ -1,0 +1,28 @@
+name: Keep All Supabase Projects Active
+
+on:
+  schedule:
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping First Project
+        run: |
+          curl -i -X GET "https://vmxbedovoahuggfpcmyk.supabase.co/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Ping Bank Project
+        run: |
+          curl -i -X GET "https://rahqhfowbphaipiadlkh.supabase.co/rest/v1/" \
+            -H "apikey: sb_publishable_WAA4kMqzeM2_S6Mxi9t9kg_hbLIjbh9" \
+            -H "Authorization: Bearer sb_publishable_WAA4kMqzeM2_S6Mxi9t9kg_hbLIjbh9"
+
+      - name: Ping Chat Project
+        run: |
+          curl -i -X GET "https://vmsvmvetlpszsmqigonp.supabase.co/rest/v1/" \
+            -H "apikey: sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0" \
+            -H "Authorization: Bearer sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
