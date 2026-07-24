@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>دردشة متقدمة</title>
+  <title>دردشة متقدمة مع دعم الصور</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -60,19 +60,40 @@
       margin-top: 4px;
     }
 
+    .msg img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin-top: 5px;
+      display: block;
+    }
+
     #inputBox {
       display: flex;
       gap: 6px;
       padding: 10px;
       background: #202c33;
+      align-items: center;
     }
 
-    input {
+    input[type="text"] {
       flex: 1;
       padding: 10px;
       border: none;
       border-radius: 8px;
       outline: none;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .file-upload-btn {
+      background: #374248;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      text-align: center;
     }
 
     button {
@@ -91,6 +112,8 @@
   <div id="chat"></div>
 
   <div id="inputBox">
+    <label for="imageInput" class="file-upload-btn">📷</label>
+    <input type="file" id="imageInput" accept="image/*" />
     <input id="message" placeholder="اكتب رسالة..." />
     <button onclick="sendMessage()">إرسال</button>
   </div>
@@ -98,6 +121,7 @@
   <script>
     const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
     const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
+    const BUCKET_NAME = "chat-images"; // اسم الـ Bucket الخاص بالصور في Supabase Storage
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -114,15 +138,23 @@
       const div = document.createElement("div");
       div.className = "msg " + (msg.name === username ? "me" : "other");
 
-      const text = document.createElement("div");
-      text.textContent = msg.text;
+      if (msg.text) {
+        const text = document.createElement("div");
+        text.textContent = msg.text;
+        div.appendChild(text);
+      }
+
+      if (msg.image_url) {
+        const img = document.createElement("img");
+        img.src = msg.image_url;
+        div.appendChild(img);
+      }
 
       const meta = document.createElement("div");
       meta.className = "meta";
       const time = new Date(msg.created_at).toLocaleTimeString();
       meta.textContent = msg.name + " • " + time;
 
-      div.appendChild(text);
       div.appendChild(meta);
       chatDiv.appendChild(div);
     }
@@ -134,7 +166,7 @@
         .order("created_at", { ascending: true });
 
       chatDiv.innerHTML = "";
-      data.forEach(renderMessage);
+      if (data) data.forEach(renderMessage);
       chatDiv.scrollTop = chatDiv.scrollHeight;
     }
 
@@ -154,17 +186,50 @@
 
     async function sendMessage() {
       const input = document.getElementById("message");
+      const imageInput = document.getElementById("imageInput");
+      
       const text = input.value.trim();
-      if (!text) return;
+      const imageFile = imageInput.files[0];
 
+      if (!text && !imageFile) return;
+
+      let imageUrl = null;
+
+      // رفع الصورة إذا تم اختيارها
+      if (imageFile) {
+        const fileExt = imageFile.name.split(".").pop();
+        const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await client.storage
+          .from(BUCKET_NAME)
+          .upload(filePath, imageFile);
+
+        if (uploadError) {
+          alert("فشل رفع الصورة: " + uploadError.message);
+          return;
+        }
+
+        // جلب الرابط العام للصورة
+        const { data: publicURLData } = client.storage
+          .from(BUCKET_NAME)
+          .getPublicUrl(filePath);
+
+        imageUrl = publicURLData.publicUrl;
+      }
+
+      // إرسال البيانات إلى جدول الرسائل
       await client.from("messages").insert([
         {
-          text,
+          text: text || null,
+          image_url: imageUrl,
           name: username,
         },
       ]);
 
+      // إعادة تعيين الحقول
       input.value = "";
+      imageInput.value = "";
     }
   </script>
 </body>
