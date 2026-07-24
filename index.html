@@ -1,147 +1,192 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>   دردشة حولنا</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jamba Chat</title>
 
-  <!-- مكتبة Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f0f2f5;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    h2 {
-      color: #1a73e8;
-      margin-bottom: 10px;
-    }
-
-    /* صندوق الدردشة */
-    #chat {
-      width: 100%;
-      max-width: 500px;
-      height: 400px;
-      overflow-y: auto;
-      border-radius: 10px;
-      background: white;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      margin: 20px 0;
-      padding: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    /* الرسالة */
-    .message {
-      padding: 8px 12px;
-      border-radius: 10px;
-      max-width: 80%;
-      word-wrap: break-word;
-      font-size: 14px;
-    }
-
-    .me {
-      background: #1a73e8;
-      color: white;
-      align-self: flex-end;
-    }
-
-    .other {
-      background: #e4e6eb;
-      color: black;
-      align-self: flex-start;
-    }
-
-    /* إدخال الرسالة */
-    .input-box {
-      display: flex;
-      width: 100%;
-      max-width: 500px;
-      gap: 10px;
-    }
-
-    input, button {
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-
-    input {
-      flex: 1;
-    }
-
-    button {
-      background: #1a73e8;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #0f5bd3;
-    }
-
-    /* شاشة الاسم */
-    #loginBox {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
-      max-width: 300px;
-      align-items: center;
-    }
-  </style>
+<style>
+body { font-family: Arial; margin:20px; }
+#user-list button { display:block; margin:5px 0; padding:6px; cursor:pointer; }
+#messages { height:320px; overflow:auto; border:1px solid #ccc; padding:10px; margin:10px 0; background:#fafafa; }
+.my { color:blue; margin:4px 0; }
+.other { color:green; margin:4px 0; }
+</style>
 </head>
 <body>
 
-  <h2>💬 دردشة حولنا</h2>
+<h2>  حولنا</h2>
 
-  <!-- تسجيل الاسم -->
-  <div id="loginBox">
-    <input type="text" id="username" placeholder="اكتب اسمك..." />
-    <button onclick="startChat()">دخول</button>
-  </div>
+<div id="user-list"></div>
+<h3 id="chat-header">اختر مستخدم لبدء المحادثة</h3>
+<div id="messages"></div>
 
-  <!-- الدردشة -->
-  <div id="chat" style="display:none;"></div>
+<input id="msg" placeholder="اكتب رسالة..." />
+<button id="send">إرسال</button>
 
-  <!-- إدخال الرسالة -->
-  <div class="input-box" style="display:none;" id="inputArea">
-    <input type="text" id="messageInput" placeholder="اكتب رسالة..." />
-    <button onclick="sendMessage()">إرسال</button>
-  </div>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-<script>
-/* بيانات Supabase — غيرها ببياناتك */
-const SUPABASE_URL = "https://vmsvmvetlpszsmqigonp.supabase.co";
-const SUPABASE_KEY = "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0";
+/* ضع بيانات مشروعك هنا فقط */
+const supabase = createClient(
+  "https://szjeerdjuyuqyrixqihb.supabase.co",
+  "sb_publishable_GpdhY2DBLlI0t3VdzXUWOA_dt43iBLx"
+);
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let me = null;
+let chatId = null;
+let channel = null;
 
-let currentUser = "";
+/* إنشاء أو جلب المستخدم */
+async function initUser() {
+  let saved = localStorage.getItem("uid");
 
-/* بدء الدردشة */
-function startChat() {
-  const name = document.getElementById("username").value.trim();
-  if (!name) return alert("اكتب اسمك أولاً");
+  if (saved) {
+    let { data } = await supabase.from("users").select("*").eq("id", saved).single();
+    if (data) { me = data; return; }
+  }
 
-  currentUser = name;
+  let name = prompt("اكتب اسمك");
+  if (!name) return;
 
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("chat").style.display = "flex";
-  document.get
+  let { data } = await supabase.from("users")
+    .insert({ username: name })
+    .select()
+    .single();
+
+  localStorage.setItem("uid", data.id);
+  me = data;
+}
+
+/* تحميل المستخدمين */
+async function loadUsers() {
+  let { data } = await supabase
+    .from("users")
+    .select("*")
+    .neq("id", me.id);
+
+  let box = document.getElementById("user-list");
+  box.innerHTML = "<h3>المستخدمين:</h3>";
+
+  data.forEach(u => {
+    let b = document.createElement("button");
+    b.textContent = u.username;
+    b.onclick = () => openChat(u);
+    box.appendChild(b);
+  });
+}
+
+/* فتح محادثة بين شخصين */
+async function openChat(u) {
+
+  let { data } = await supabase
+    .from("chats")
+    .select("*")
+    .or(`and(user1.eq.${me.id},user2.eq.${u.id}),and(user1.eq.${u.id},user2.eq.${me.id})`)
+    .single();
+
+  if (!data) {
+    let res = await supabase.from("chats")
+      .insert({ user1: me.id, user2: u.id })
+      .select()
+      .single();
+    data = res.data;
+  }
+
+  chatId = data.id;
+
+  document.getElementById("chat-header").textContent = "الدردشة مع " + u.username;
+
+  await loadMessages();
+  listenMessages();
+}
+
+/* تحميل الرسائل القديمة */
+async function loadMessages() {
+  let { data, error } = await supabase
+    .from("messages")
+    .select("text, sender_id, users(username)")
+    .eq("chat_id", chatId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  let box = document.getElementById("messages");
+  box.innerHTML = "";
+
+  data.forEach(msg => {
+    let div = document.createElement("div");
+
+    let senderName = msg.users?.username || "مستخدم";
+
+    div.textContent = senderName + ": " + msg.text;
+    div.className = msg.sender_id === me.id ? "my" : "other";
+
+    box.appendChild(div);
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+
+/* الاستماع اللحظي */
+function listenMessages() {
+
+  if (channel) supabase.removeChannel(channel);
+
+  channel = supabase
+    .channel("room-" + chatId)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `chat_id=eq.${chatId}`
+      },
+      payload => addMsg(payload.new)
+    )
+    .subscribe();
+}
+
+/* عرض رسالة في الشاشة */
+function addMsg(msg) {
+  let div = document.createElement("div");
+
+  let senderName = msg.username || "مستخدم";
+
+  div.textContent = senderName + ": " + msg.text;
+
+  div.className = msg.sender_id === me.id ? "my" : "other";
+
+  document.getElementById("messages").appendChild(div);
+}
+
+/* إرسال رسالة */
+document.getElementById("send").onclick = async () => {
+  let t = document.getElementById("msg").value;
+  if (!t || !chatId) return;
+
+  await supabase.from("messages").insert({
+    chat_id: chatId,
+    sender_id: me.id,
+    text: t
+  });
+
+  document.getElementById("msg").value = "";
+
+  /* إظهار فوري */
+  await loadMessages();
+};
+
+/* بدء التشغيل */
+await initUser();
+await loadUsers();
+</script>
+
+</body>
+</html>
 
