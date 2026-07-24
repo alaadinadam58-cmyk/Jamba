@@ -1,4 +1,4 @@
-name: Keep All Supabase Projects Active
+name: Keep Supabase Projects Active
 
 on:
   schedule:
@@ -20,9 +20,3 @@ jobs:
           curl -i -X GET "https://rahqhfowbphaipiadlkh.supabase.co/rest/v1/" \
             -H "apikey: sb_publishable_WAA4kMqzeM2_S6Mxi9t9kg_hbLIjbh9" \
             -H "Authorization: Bearer sb_publishable_WAA4kMqzeM2_S6Mxi9t9kg_hbLIjbh9"
-
-      - name: Ping Chat Project
-        run: |
-          curl -i -X GET "https://vmsvmvetlpszsmqigonp.supabase.co/rest/v1/" \
-            -H "apikey: sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0" \
-            -H "Authorization: Bearer sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
