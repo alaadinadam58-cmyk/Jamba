@@ -215,11 +215,11 @@
           .from(BUCKET_NAME)
           .getPublicUrl(filePath);
 
-        imageUrl = publicURLData.publicUrl; 
+        imageUrl = publicURLData.publicUrl;
       }
 
       // إرسال البيانات إلى جدول الرسائل
-      await client.from("messages").insert([ 
+      await client.from("messages").insert([
         {
           text: text || null,
           image_url: imageUrl,
