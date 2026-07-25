@@ -107,7 +107,7 @@ header {
 /* تنسيق الصور داخل الرسائل */
 .my img, .other img {
   max-width: 100%;
-  border-radius: 12px;
+  border-radius: 10px;
   margin-top: 5px;
   display: block;
 }
@@ -130,14 +130,14 @@ header {
   font-size:15px;
 }
 
-/* زر إرفاق الصورة المخفي */
+/* زر إرفاق الصورة */
 #imageInput {
   display: none;
 }
 
-/* زر إرفاق الصورة بتصميم متناسق */
 .image-upload-btn {
   background: #e4e6eb;
+  color: #333;
   padding: 10px 14px;
   border-radius: 25px;
   cursor: pointer;
@@ -163,8 +163,7 @@ header {
 #send:hover {
   background:#1557b0;
 }
-
-/* إشعار مرئي */
+  /* إشعار مرئي */
 .toast {
   position: fixed;
   top: 20px;
@@ -185,17 +184,15 @@ header {
   opacity: 1;
   transform: translateY(0);
 }
-
 .unread-badge {
   color: red;
   font-weight: bold;
 }
-
 #loginScreen{
   position:fixed;
   inset:0;
   background:linear-gradient(135deg,#075e54,#128c7e);
-  display:none;
+  display:none; /* ← مهم */
   justify-content:center;
   align-items:center;
   z-index:9999;
@@ -207,7 +204,6 @@ header {
 <body>
 
 <header>دردشة الجمبا</header>
-
 <div id="loginScreen">
   <div class="loginBox" style="background: rgba(0, 0, 0, 0.5); padding: 30px; border-radius: 15px; text-align: center; color: white;">
     <h2>مرحباً بك 👋</h2>
@@ -217,7 +213,6 @@ header {
     <button onclick="registerUser()" style="padding: 10px 20px; border: none; border-radius: 8px; background: #1a73e8; color: white; margin-top: 10px; cursor: pointer;">دخول</button>
   </div>
 </div>
-
 <!-- المستخدمين بالأعلى -->
 <div id="user-list"></div>
 
@@ -228,6 +223,7 @@ header {
   <div class="input-area">
     <label for="imageInput" class="image-upload-btn" title="اختر صورة">📷</label>
     <input type="file" id="imageInput" accept="image/*">
+    
     <input id="msg" placeholder="اكتب رسالة..." />
     <button id="send">إرسال</button>
   </div>
@@ -248,7 +244,8 @@ let me = null;
 let chatId = null;
 let channel = null;
 
-async function registerUser() {
+  async function registerUser() {
+
   let name = document.getElementById("usernameInput").value.trim();
 
   if (!name) {
@@ -279,10 +276,12 @@ async function registerUser() {
 
 window.registerUser = registerUser;
 
+
 /* =========================
    تسجيل المستخدم
 ========================= */
 async function initUser() {
+
   let saved = localStorage.getItem("uid");
 
   if (!saved) {
@@ -307,6 +306,7 @@ async function initUser() {
    تحميل المستخدمين
 ========================= */
 async function loadUsers() {
+
   let { data: users } = await supabase
     .from("users")
     .select("*")
@@ -318,6 +318,7 @@ async function loadUsers() {
   if (!users) return;
 
   for (let u of users) {
+
     const { count } = await supabase
       .from("messages")
       .select("*", { count: "exact", head: true })
@@ -343,6 +344,7 @@ async function loadUsers() {
    فتح محادثة
 ========================= */
 async function openChat(u) {
+
   let { data } = await supabase
     .from("chats")
     .select("*")
@@ -378,6 +380,7 @@ async function openChat(u) {
    تحميل الرسائل
 ========================= */
 async function loadMessages() {
+
   let { data } = await supabase
     .from("messages")
     .select(`
@@ -396,16 +399,17 @@ async function loadMessages() {
   if (!data) return;
 
   data.forEach(msg => {
+
     let div = document.createElement("div");
     div.id = "msg-" + msg.id;
 
     if (msg.sender_id === me.id) {
       div.className = "my";
-      
+
       if (msg.text) {
-        let textDiv = document.createElement("div");
-        textDiv.textContent = msg.text;
-        div.appendChild(textDiv);
+        let textSpan = document.createElement("div");
+        textSpan.textContent = msg.text;
+        div.appendChild(textSpan);
       }
 
       if (msg.image_url) {
@@ -428,13 +432,16 @@ async function loadMessages() {
 
     } else {
       div.className = "other";
-      
       let senderName = msg.sender?.username || "مستخدم";
-      
+
       if (msg.text) {
-        let textDiv = document.createElement("div");
-        textDiv.textContent = senderName + ": " + msg.text;
-        div.appendChild(textDiv);
+        let textSpan = document.createElement("div");
+        textSpan.textContent = senderName + ": " + msg.text;
+        div.appendChild(textSpan);
+      } else {
+        let textSpan = document.createElement("div");
+        textSpan.textContent = senderName + ": أرسل صورة";
+        div.appendChild(textSpan);
       }
 
       if (msg.image_url) {
@@ -454,6 +461,7 @@ async function loadMessages() {
    الاستماع الفوري
 ========================= */
 function listenMessages() {
+
   if (channel) supabase.removeChannel(channel);
 
   channel = supabase
@@ -467,17 +475,22 @@ function listenMessages() {
         table: "messages"
       },
       async (payload) => {
+
         const msg = payload.new;
 
+        // لا تعرض رسالتي (أنا أعرضها محلياً)
         if (msg.sender_id === me.id) return;
 
+        // لو الرسالة ليست في الشات المفتوح
         if (msg.chat_id !== chatId) {
           loadUsers();
           return;
         }
 
+        // منع التكرار
         if (document.getElementById("msg-" + msg.id)) return;
 
+        // جلب اسم المرسل
         const { data: user } = await supabase
           .from("users")
           .select("username")
@@ -493,9 +506,13 @@ function listenMessages() {
         let senderName = user ? user.username : "مستخدم";
 
         if (msg.text) {
-          let textDiv = document.createElement("div");
-          textDiv.textContent = senderName + ": " + msg.text;
-          div.appendChild(textDiv);
+          let textSpan = document.createElement("div");
+          textSpan.textContent = senderName + ": " + msg.text;
+          div.appendChild(textSpan);
+        } else {
+          let textSpan = document.createElement("div");
+          textSpan.textContent = senderName + ": أرسل صورة";
+          div.appendChild(textSpan);
         }
 
         if (msg.image_url) {
@@ -507,6 +524,7 @@ function listenMessages() {
         box.appendChild(div);
         box.scrollTop = box.scrollHeight;
 
+        // تحديثها كمقروءة
         await supabase
           .from("messages")
           .update({ is_read: true })
@@ -532,10 +550,12 @@ function listenMessages() {
     .subscribe();
 }
 
+
 /* =========================
    إرسال رسالة أو صورة
 ========================= */
 async function sendMessage() {
+
   let input = document.getElementById("msg");
   let imageInput = document.getElementById("imageInput");
 
