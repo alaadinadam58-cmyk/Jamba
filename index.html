@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> حولنا</title>
+<title>  الجمبا</title>
 
 <style>
 body {
@@ -156,32 +156,39 @@ header {
   color: red;
   font-weight: bold;
 }
+#loginScreen{
+  position:fixed;
+  inset:0;
+  background:linear-gradient(135deg,#075e54,#128c7e);
+  display:none; /* ← مهم */
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
 
 </style>
 </head>
 
 <body>
 
-<header>دردشة حولنا</header>
-
+<header>دردشة الجمبا </header>
+<div id="loginScreen">
+  <div class="loginBox">
+    <h2>مرحباً بك 👋</h2>
+    <p>اكتب اسمك للدخول إلى الشات</p>
+    <input type="text" id="usernameInput" placeholder="اسمك">
+    <button onclick="registerUser()">دخول</button>
+  </div>
+</div>
 <!-- المستخدمين بالأعلى -->
 <div id="user-list"></div>
 
 <!-- الدردشة بالأسفل أكبر -->
 <div class="chat-panel">
   <h3 id="chat-header">اختر مستخدم لبدء المحادثة</h3>
-
   <div id="messages"></div>
-
   <div class="input-area">
     <input id="msg" placeholder="اكتب رسالة..." />
-
-    <!-- input مخفي لرفع الصورة -->
-    <input type="file" id="imageInput" accept="image/*" style="display:none">
-
-    <!-- زر الصورة -->
-    <button id="imgBtn">📷</button>
-
     <button id="send">إرسال</button>
   </div>
 </div>
@@ -191,37 +198,70 @@ header {
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 const supabase = createClient(
-  "https://szjeerdjuyuqyrixqihb.supabase.co",
-  "sb_publishable_GpdhY2DBLlI0t3VdzXUWOA_dt43iBLx"
+ "https://vmsvmvetlpszsmqigonp.supabase.co",
+  "sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
 );
-window.supabase = supabase;
 
 let me = null;
 let chatId = null;
 let channel = null;
 
-/* =========================
-   تسجيل المستخدم
-========================= */
-async function initUser() {
-  let saved = localStorage.getItem("uid");
+  async function registerUser() {
 
-  if (saved) {
-    let { data } = await supabase.from("users").select("*").eq("id", saved).single();
-    if (data) { me = data; return; }
+  let name = document.getElementById("usernameInput").value.trim();
+
+  if (!name) {
+    alert("اكتب اسمك أولاً");
+    return;
   }
 
-  let name = prompt("اكتب اسمك");
-  if (!name) return;
-
-  let { data } = await supabase
+  const { data, error } = await supabase
     .from("users")
     .insert({ username: name })
     .select()
     .single();
 
+  if (error) {
+    alert("خطأ: " + error.message);
+    console.error(error);
+    return;
+  }
+
   localStorage.setItem("uid", data.id);
   me = data;
+
+  document.getElementById("loginScreen").style.display = "none";
+
+  await loadUsers();
+  listenMessages();
+}
+
+window.registerUser = registerUser;
+
+
+/* =========================
+   تسجيل المستخدم
+========================= */
+async function initUser() {
+
+  let saved = localStorage.getItem("uid");
+
+  if (!saved) {
+    document.getElementById("loginScreen").style.display = "flex";
+    return;
+  }
+
+  let { data } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", saved)
+    .single();
+
+  if (data) {
+    me = data;
+  } else {
+    document.getElementById("loginScreen").style.display = "flex";
+  }
 }
 
 /* =========================
@@ -306,7 +346,6 @@ async function loadMessages() {
     .select(`
       id,
       text,
-      image_url,
       sender_id,
       sender:sender_id ( username )
     `)
@@ -323,42 +362,20 @@ async function loadMessages() {
 
     if (msg.sender_id === me.id) {
       div.className = "my";
-    } else {
-      div.className = "other";
-    }
+      div.textContent = msg.text;
 
-    // عرض النص
-    if (msg.text) {
-      let text = document.createElement("div");
-
-      if (msg.sender_id === me.id) {
-        text.textContent = msg.text;
-      } else {
-        text.textContent = msg.sender?.username + ": " + msg.text;
-      }
-
-      div.appendChild(text);
-    }
-
-    // عرض الصورة
-    if (msg.image_url) {
-      let img = document.createElement("img");
-      img.src = msg.image_url;
-      img.style.maxWidth = "200px";
-      img.style.borderRadius = "10px";
-      img.style.marginTop = "5px";
-      div.appendChild(img);
-    }
-
-    // زر الحذف لرسائلي فقط
-    if (msg.sender_id === me.id) {
       let del = document.createElement("button");
       del.textContent = "🗑";
       del.style.marginRight = "6px";
       del.onclick = async () => {
         await supabase.from("messages").delete().eq("id", msg.id);
       };
+
       div.appendChild(del);
+
+    } else {
+      div.className = "other";
+      div.textContent = msg.sender?.username + ": " + msg.text;
     }
 
     box.appendChild(div);
@@ -366,7 +383,6 @@ async function loadMessages() {
 
   box.scrollTop = box.scrollHeight;
 }
-
 
 /* =========================
    الاستماع الفوري
@@ -479,96 +495,15 @@ async function sendMessage() {
 
   await loadMessages();
 }
+
 /* =========================
-   إرسال صورة
+   ربط الأزرار
 ========================= */
-/* =========================
-   إرسال صورة
-========================= */
-async function sendImage(file) {
+document.getElementById("send").addEventListener("click", sendMessage);
 
-  try {
-
-    if (!file || !chatId) return;
-
-    // جلب بيانات المحادثة
-    const { data: chat, error: chatError } = await supabase
-      .from("chats")
-      .select("user1, user2")
-      .eq("id", chatId)
-      .single();
-
-    if (chatError) {
-      console.error("Chat error:", chatError);
-      alert("خطأ في جلب بيانات المحادثة");
-      return;
-    }
-
-    let receiverId =
-      chat.user1 === me.id ? chat.user2 : chat.user1;
-
-    // اسم فريد للصورة
-    const fileName = Date.now() + "-" + file.name;
-
-    // رفع الصورة إلى Storage
-    const { error: uploadError } = await supabase
-      .storage
-      .from("chat-images")
-      .upload(fileName, file);
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      alert("فشل رفع الصورة - تحقق من إعدادات Storage");
-      return;
-    }
-
-    // الحصول على الرابط الصحيح
-    const { data } = supabase
-      .storage
-      .from("chat-images")
-      .getPublicUrl(fileName);
-
-    const imageUrl = data.publicUrl;
-
-    // حفظ الرسالة في قاعدة البيانات
-    const { error: insertError } = await supabase
-      .from("messages")
-      .insert({
-        chat_id: chatId,
-        sender_id: me.id,
-        receiver_id: receiverId,
-        image_url: imageUrl,
-        is_read: false
-      });
-
-    if (insertError) {
-      console.error("Insert error:", insertError);
-      alert("فشل حفظ الرسالة");
-      return;
-    }
-
-    await loadMessages();
-
-  } catch (err) {
-    console.error("Unexpected error:", err);
-    alert("حدث خطأ غير متوقع");
-  }
-}
-
-
-document.getElementById("imgBtn").onclick = () => {
-  document.getElementById("imageInput").click();
-};
-
-document.getElementById("imageInput")
-  .addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      await sendImage(file);
-      e.target.value = "";
-    }
-  });
-
+document.getElementById("msg").addEventListener("keypress", e => {
+  if (e.key === "Enter") sendMessage();
+});
 
 /* =========================
    تشغيل التطبيق
@@ -582,4 +517,5 @@ listenMessages();
 </script>
 </body>
 </html>
+
 
