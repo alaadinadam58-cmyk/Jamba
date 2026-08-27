@@ -1,28 +1,17 @@
-name: Keep All Supabase Projects Active
+name: Keep Chat Supabase Active Securely
 
 on:
   schedule:
-    - cron: '0 12 */3 * *'
+    # يعمل يومياً في منتصف النهار (الساعة 12:00 ظهراً بالتوقيت العالمي UTC)
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 jobs:
-  ping-supabase:
+  ping-chat-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping First Project
+      - name: Send Real Query to Chat Supabase Database
         run: |
-          curl -i -X GET "https://vmxbedovoahuggfpcmyk.supabase.co/rest/v1/" \
+          curl -i -X GET "https://vmsvmvetlpszsmqigonp.supabase.co/rest/v1/users?limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
-
-      - name: Ping Bank Project
-        run: |
-          curl -i -X GET "https://rahqhfowbphaipiadlkh.supabase.co/rest/v1/" \
-            -H "apikey: sb_publishable_WAA4kMqzeM2_S6Mxi9t9kg_hbLIjbh9" \
-            -H "Authorization: Bearer sb_publishable_WAA4kMqzeM2_S6Mxi9t9kg_hbLIjbh9"
-
-      - name: Ping Chat Project
-        run: |
-          curl -i -X GET "https://vmsvmvetlpszsmqigonp.supabase.co/rest/v1/" \
-            -H "apikey: sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0" \
-            -H "Authorization: Bearer sb_publishable_4sCsIFqPbKbfCY66CsXuzA_hgOFLWO0"
